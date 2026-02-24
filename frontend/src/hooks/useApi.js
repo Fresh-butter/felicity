@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 
-const BASE = "http://localhost:5000/api";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 export default function useApi() {
     const { token, logout } = useContext(AuthContext);

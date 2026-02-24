@@ -21,10 +21,14 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Socket.IO for real-time discussion — allow all origins
-const io = new Server(server, { cors: { origin: "*" } });
+const allowedOrigins = process.env.FRONTEND_URL
+  ? [process.env.FRONTEND_URL, "http://localhost:5173"]
+  : ["http://localhost:5173", "http://localhost:5174"];
 
-app.use(cors());
+// Socket.IO for real-time discussion — allow all origins
+const io = new Server(server, { cors: { origin: allowedOrigins } });
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "10mb" }));
 
 // Socket.IO event handlers for discussion rooms

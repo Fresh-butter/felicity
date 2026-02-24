@@ -1,95 +1,114 @@
-// mailer.js — Email + Discord utilities
+// safe for all Node versions
+// mailer.js — Email utility with environment toggle
 
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
-import fetch from "node-fetch"; // safe for all Node versions
+import fetch from "node-fetch"; 
 
 dotenv.config();
 
-// -------------------- ENV CHECK --------------------
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  console.warn("⚠️ EMAIL_USER or EMAIL_PASS missing in .env");
+// -------------------- CONFIG --------------------
+const MAILS_ENABLED = process.env.ENABLE_MAILS === "true";
+
+// -------------------- TRANSPORTER (LAZY INIT) --------------------
+let transporter = null;
+
+if (MAILS_ENABLED) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn("⚠️ EMAIL_USER or EMAIL_PASS missing in .env");
+  }
+
+  transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  // Verify connection
+  transporter.verify((error) => {
+    if (error) {
+      console.error("❌ Email service connection failed:", error.message);
+    } else {
+      console.log("✅ Email service connected successfully");
+    }
+  });
+} else {
+  console.log("📭 Email service is DISABLED via env");
 }
 
-// -------------------- EMAIL SETUP --------------------
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// ✅ Verify connection on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ Email service connection failed:", error.message);
-  } else {
-    console.log("✅ Email service connected successfully");
-  }
-});
-
-// -------------------- EMAIL FUNCTION --------------------
+// -------------------- MAIN FUNCTION --------------------
 export const sendTicketEmail = async (recipientEmail, ticketData) => {
-  if (!recipientEmail) {
-    console.warn("⚠️ No recipient email provided");
-    return;
+  // 🔥 Hard no-op
+  if (!MAILS_ENABLED) {
+    return; // no logs, no errors, silent skip
   }
-
-  const {
-    eventName,
-    participantName,
-    ticketId,
-    qrCode,
-    eventDate,
-  } = ticketData;
-
-  const formattedDate = eventDate
-    ? new Date(eventDate).toLocaleString()
-    : "N/A";
-
-  // Build inline attachment and HTML reference for the QR code.
-  // Email clients block base64 data: URLs in <img src>, so we attach the
-  // PNG as an inline CID attachment and reference it via cid: instead.
-  let qrCodeHtml = "";
-  const attachments = [];
-
-  if (qrCode) {
-    // qrCode is "data:image/png;base64,<data>" — strip the prefix
-    const base64Data = qrCode.replace(/^data:image\/png;base64,/, "");
-    attachments.push({
-      filename: "ticket-qr.png",
-      content: base64Data,
-      encoding: "base64",
-      cid: "ticketqr@felicity", // unique content ID
-    });
-    qrCodeHtml = `<p><strong>QR Code:</strong></p><img src="cid:ticketqr@felicity" width="200" alt="Ticket QR Code" />`;
-  }
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: recipientEmail,
-    subject: `Felicity — Ticket for ${eventName}`,
-    html: `
-      <div style="font-family: Arial; max-width: 600px; margin: auto;">
-        <h2 style="color: #4CAF50;">🎉 Registration Confirmed!</h2>
-        <p>Hi <strong>${participantName}</strong>,</p>
-        <p>You are registered for <strong>${eventName}</strong>.</p>
-        <hr />
-        <p><strong>Ticket ID:</strong> ${ticketId}</p>
-        <p><strong>Event Date:</strong> ${formattedDate}</p>
-        ${qrCodeHtml}
-        <hr />
-        <p style="color: #888;">Felicity Event System</p>
-      </div>
-    `,
-    attachments,
-  };
 
   try {
+    if (!recipientEmail) {
+      console.warn("⚠️ No recipient email provided");
+      return;
+    }
+
+    const {
+      eventName,
+      participantName,
+      ticketId,
+      qrCode,
+      eventDate,
+    } = ticketData;
+
+    const formattedDate = eventDate
+      ? new Date(eventDate).toLocaleString()
+      : "N/A";
+
+    // -------------------- QR CODE HANDLING --------------------
+    let qrCodeHtml = "";
+    const attachments = [];
+
+    if (qrCode) {
+      const base64Data = qrCode.replace(/^data:image\/png;base64,/, "");
+      attachments.push({
+        filename: "ticket-qr.png",
+        content: base64Data,
+        encoding: "base64",
+        cid: "ticketqr@felicity",
+      });
+
+      qrCodeHtml = `
+        <p><strong>QR Code:</strong></p>
+        <img src="cid:ticketqr@felicity" width="200" alt="Ticket QR Code" />
+      `;
+    }
+
+    // -------------------- EMAIL TEMPLATE --------------------
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: recipientEmail,
+      subject: `Felicity — Ticket for ${eventName}`,
+      html: `
+        <div style="font-family: Arial; max-width: 600px; margin: auto;">
+          <h2 style="color: #4CAF50;">🎉 Registration Confirmed!</h2>
+          <p>Hi <strong>${participantName}</strong>,</p>
+          <p>You are registered for <strong>${eventName}</strong>.</p>
+          <hr />
+          <p><strong>Ticket ID:</strong> ${ticketId}</p>
+          <p><strong>Event Date:</strong> ${formattedDate}</p>
+          ${qrCodeHtml}
+          <hr />
+          <p style="color: #888;">Felicity Event System</p>
+        </div>
+      `,
+      attachments,
+    };
+
+    // -------------------- SEND --------------------
     await transporter.sendMail(mailOptions);
     console.log(`📧 Ticket email sent to ${recipientEmail}`);
+
   } catch (error) {
+    // ❗ Never break caller
     console.error("❌ Email send failed:", error.message);
   }
 };

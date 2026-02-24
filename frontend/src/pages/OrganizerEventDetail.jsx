@@ -35,6 +35,7 @@ export default function OrganizerEventDetail() {
     // Registration toggle state
     const [showRegForm, setShowRegForm] = useState(false);
     const [regDeadline, setRegDeadline] = useState("");
+    const [showFullWarning, setShowFullWarning] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -322,16 +323,27 @@ export default function OrganizerEventDetail() {
                     )}
                     {canToggleReg && !isRegistrationEffectivelyOpen && (
                         <button className="btn-accent" onClick={() => {
-                            if (!showRegForm) {
-                                // Pre-fill with current time + 10 minutes
+                            if (showRegForm) {
+                                // Cancel — reset everything
+                                setShowRegForm(false);
+                                setShowFullWarning(false);
+                                return;
+                            }
+                            if (event.registrationCount >= event.registrationLimit) {
+                                // Event is full — show warning first, don't open the form yet
+                                setShowFullWarning(true);
+                                setShowRegForm(false);
+                            } else {
+                                // Not full — open form directly with default deadline
+                                setShowFullWarning(false);
                                 const defaultDeadline = new Date(Date.now() + 10 * 60 * 1000);
                                 const local = new Date(defaultDeadline.getTime() - defaultDeadline.getTimezoneOffset() * 60000)
                                     .toISOString().slice(0, 16);
                                 setRegDeadline(local);
+                                setShowRegForm(true);
                             }
-                            setShowRegForm(!showRegForm);
                         }}>
-                            {showRegForm ? "Cancel" : "Open Registration"}
+                            {showRegForm || showFullWarning ? "Cancel" : "Open Registration"}
                         </button>
                     )}
                     {canToggleReg && isRegistrationEffectivelyOpen && (
@@ -348,6 +360,18 @@ export default function OrganizerEventDetail() {
             </div>
 
             {statusMessage && <p className="msg msg-success">{statusMessage}</p>}
+
+            {/* Full-event warning — shown instead of the deadline form when event is at capacity */}
+            {showFullWarning && (
+                <div className="card" style={{ marginBottom: 14, background: "#fff8e1", border: "1px solid #f59e0b" }}>
+                    <h4 style={{ margin: "0 0 8px", color: "#b45309" }}>⚠️ Cannot Open Registration — Event is Full</h4>
+                    <p style={{ margin: "0 0 12px" }}>
+                        This event has reached its registration limit ({event.registrationCount}/{event.registrationLimit} spots taken).
+                        Please increase the registration limit/review pending requests.
+                    </p>
+                    <button className="btn-secondary" onClick={() => setShowFullWarning(false)}>Dismiss</button>
+                </div>
+            )}
 
             {/* Registration open form — asks for deadline */}
             {showRegForm && (

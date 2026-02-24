@@ -26,7 +26,7 @@ export default function ChatBox({ eventId, canPost, isModerator }) {
         });
 
         // Connect to the Socket.IO server
-        const socket = io("http://localhost:5000");
+        const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");
         socketRef.current = socket;
 
         // Join the event's discussion room
