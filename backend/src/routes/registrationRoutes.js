@@ -6,7 +6,7 @@ import Registration from "../models/Registration.js";
 import Event from "../models/Event.js";
 import User from "../models/User.js";
 import { authenticate, authorizeRoles } from "../middleware/authMiddleware.js";
-import { findOrganizerAndEvent } from "./eventHelpers.js";
+import { findOrganizerAndEvent, computeStatus } from "./eventHelpers.js";
 import { sendTicketEmail } from "../utils/mailer.js";
 
 const router = express.Router();
@@ -259,7 +259,7 @@ router.post("/:id/scan", authenticate, authorizeRoles("organizer"), async (reque
             return response.status(result.status).json({ message: result.error });
         }
 
-        if (result.event.status !== "ongoing") {
+        if (computeStatus(result.event) !== "ongoing") {
             return response.status(400).json({ message: "Attendance can only be taken while the event is ongoing" });
         }
 
@@ -307,7 +307,7 @@ router.post("/:eventId/registrations/:regId/checkin", authenticate, authorizeRol
             return response.status(result.status).json({ message: result.error });
         }
 
-        if (result.event.status !== "ongoing") {
+        if (computeStatus(result.event) !== "ongoing") {
             return response.status(400).json({ message: "Attendance can only be taken while the event is ongoing" });
         }
 

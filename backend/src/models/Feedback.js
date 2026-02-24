@@ -7,11 +7,8 @@ const feedbackSchema = new mongoose.Schema({
         required: true,
     },
 
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-    },
+    // No userId stored — feedback is truly anonymous.
+    // Duplicate prevention is handled via a flag on the Registration model.
 
     rating: {
         type: Number,
@@ -27,8 +24,5 @@ const feedbackSchema = new mongoose.Schema({
 },
     { timestamps: true }
 );
-
-// one feedback per user per event
-feedbackSchema.index({ eventId: 1, userId: 1 }, { unique: true });
 
 export default mongoose.model("Feedback", feedbackSchema);

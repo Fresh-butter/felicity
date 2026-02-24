@@ -408,20 +408,24 @@ router.post("/:id/feedback", authenticate, authorizeRoles("participant"), async 
             return response.status(403).json({ message: "You must have attended this event to submit feedback" });
         }
 
-        // Create the feedback
+        // Prevent duplicate feedback using the registration flag (not userId in Feedback)
+        if (registration.feedbackSubmitted) {
+            return response.status(400).json({ message: "Already submitted feedback" });
+        }
+
+        // Create truly anonymous feedback — no userId stored
         const feedback = await Feedback.create({
             eventId: request.params.id,
-            userId: request.user.userId,
             rating,
             comment,
         });
 
+        // Mark that this participant has submitted feedback
+        registration.feedbackSubmitted = true;
+        await registration.save();
+
         response.status(201).json(feedback);
     } catch (error) {
-        // Duplicate key error means user already submitted feedback
-        if (error.code === 11000) {
-            return response.status(400).json({ message: "Already submitted feedback" });
-        }
         response.status(500).json({ message: "Server error" });
     }
 });

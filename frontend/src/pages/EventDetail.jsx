@@ -111,6 +111,9 @@ export default function EventDetail() {
     if (ok) {
       setStatusMessage(`Registered! Ticket: ${data.ticketId}`);
       setMyRegistration(data);
+      // Refresh event data so registration count updates
+      const refreshedEvent = await api.get(`/events/${eventId}`);
+      if (refreshedEvent) setEvent(refreshedEvent);
     } else {
       setStatusMessage(data.message || "Registration failed");
     }
@@ -153,6 +156,9 @@ export default function EventDetail() {
         setFeedbacks(feedbackData.feedbacks);
         setFeedbackStats(feedbackData.stats);
       }
+      // Refresh registration to update feedbackSubmitted flag
+      const regData = await api.get(`/events/${eventId}/my-registration`);
+      if (regData && regData._id) setMyRegistration(regData);
     } else {
       setStatusMessage(data.message);
     }
@@ -338,8 +344,8 @@ export default function EventDetail() {
         <div className="card" style={{ marginTop: 14 }}>
           <h3>Feedback {feedbackStats.total > 0 && `(${feedbackStats.avgRating}/5, ${feedbackStats.total} reviews)`}</h3>
 
-          {/* Submit feedback */}
-          {user?.role === "participant" && (
+          {/* Submit feedback — only if not already submitted */}
+          {user?.role === "participant" && myRegistration && !myRegistration.feedbackSubmitted && (
             <div style={{ marginBottom: 10 }}>
               <div>
                 {[1, 2, 3, 4, 5].map((starNumber) => (
@@ -360,6 +366,9 @@ export default function EventDetail() {
               />
               <button className="btn-accent" onClick={handleSubmitFeedback} style={{ marginTop: 4 }}>Submit</button>
             </div>
+          )}
+          {user?.role === "participant" && myRegistration?.feedbackSubmitted && (
+            <p className="muted">You have already submitted feedback for this event.</p>
           )}
 
           {/* Display existing feedback */}

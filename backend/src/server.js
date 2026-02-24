@@ -15,6 +15,7 @@ import normalRegistration from "./routes/normalRegistration.js";
 import merchandiseRegistration from "./routes/merchandiseRegistration.js";
 import organizerRoutes from "./routes/organizerRoutes.js";
 import discussionRoutes from "./routes/discussionRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 dotenv.config();
 
@@ -72,6 +73,7 @@ const start = async () => {
   app.use("/api/events", merchandiseRegistration);
   app.use("/api/organizers", organizerRoutes);
   app.use("/api/discussions", discussionRoutes);
+  app.use("/api/notifications", notificationRoutes);
 
   // Health check
   app.get("/", function handleHealthCheck(request, response) {

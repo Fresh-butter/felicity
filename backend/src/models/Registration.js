@@ -60,6 +60,11 @@ const registrationSchema = new mongoose.Schema({
     default: null,
   },
 
+  feedbackSubmitted: {
+    type: Boolean,
+    default: false,
+  },
+
   registeredAt: {
     type: Date,
     default: Date.now,

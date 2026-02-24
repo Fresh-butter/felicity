@@ -1,10 +1,11 @@
 // OrganizerEventDetail.jsx — Detailed event management: participants, analytics, scanning, feedback
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Html5Qrcode } from "html5-qrcode";
 import useApi from "../hooks/useApi";
 import EventForm from "../components/EventForm";
+import ChatBox from "../components/ChatBox";
 
 export default function OrganizerEventDetail() {
     const { id: eventId } = useParams();
@@ -154,7 +155,8 @@ export default function OrganizerEventDetail() {
         if (!file) return;
         const html5Qr = new Html5Qrcode("qr-file-temp");
         try {
-            const decodedText = await html5Qr.scanFile(file, true);
+            // showImage=false so the container doesn't need visible dimensions
+            const decodedText = await html5Qr.scanFile(file, /* showImage */ false);
             // Auto-submit the scanned ticket
             const { ok, data: scanData } = await api.post(`/events/${eventId}/scan`, { ticketId: decodedText.trim() });
             if (ok) {
@@ -166,6 +168,8 @@ export default function OrganizerEventDetail() {
         } catch (err) {
             setStatusMessage("❌ Could not read QR code from image");
         }
+        // Cleanup the scanner instance
+        try { await html5Qr.clear(); } catch (_) { /* ignore */ }
         // Reset file input
         e.target.value = "";
     }
@@ -541,7 +545,7 @@ export default function OrganizerEventDetail() {
                             <div>
                                 <p className="muted" style={{ marginBottom: 6 }}>Upload a QR code image to scan the ticket.</p>
                                 <input type="file" accept="image/*" onChange={handleFileScan} />
-                                <div id="qr-file-temp" style={{ display: "none" }} />
+                                <div id="qr-file-temp" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0 }} />
                             </div>
                         )}
                     </>
@@ -596,8 +600,8 @@ export default function OrganizerEventDetail() {
                         const hasMerchSelections = participant.merchandiseSelections && Object.keys(participant.merchandiseSelections).length > 0;
                         const hasDetails = hasFormResponses || hasMerchSelections || participant.paymentProof;
                         return (
-                            <>
-                                <tr key={participant._id}>
+                            <React.Fragment key={participant._id}>
+                                <tr>
                                     <td style={{ width: 30, textAlign: "center", cursor: hasDetails ? "pointer" : "default" }}
                                         onClick={() => hasDetails && setExpandedParticipant(isExpanded ? null : participant._id)}>
                                         {hasDetails ? (isExpanded ? "▼" : "▶") : ""}
@@ -691,11 +695,18 @@ export default function OrganizerEventDetail() {
                                         </td>
                                     </tr>
                                 )}
-                            </>
+                            </React.Fragment>
                         );
                     })}
                 </tbody>
             </table>
+
+            {/* Discussion Forum — organizer can post messages (triggers notifications to participants) */}
+            <ChatBox
+                eventId={eventId}
+                canPost={true}
+                isModerator={true}
+            />
         </div>
     );
 }

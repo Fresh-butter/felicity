@@ -3,6 +3,8 @@
 import express from "express";
 import mongoose from "mongoose";
 import Discussion from "../models/Discussion.js";
+import Notification from "../models/Notification.js";
+import Registration from "../models/Registration.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -45,6 +47,33 @@ router.post("/:eventId", authenticate, async (request, response) => {
 
         const message = await Discussion.create(messageData);
         const populated = await message.populate("userId", "firstName lastName role");
+
+        // If the sender is an organizer of this event, notify all registered participants
+        const isOrg = await isEventOrganizer(request.user.userId, request.params.eventId);
+        if (isOrg) {
+            const event = await mongoose.model("Event").findById(request.params.eventId);
+            const eventName = event?.name || "Event";
+
+            // Find all registered participants for this event
+            const registrations = await Registration.find({ eventId: request.params.eventId })
+                .select("userId");
+
+            const notificationDocs = [];
+            for (const reg of registrations) {
+                // Don't notify the organizer themselves
+                if (reg.userId.toString() === request.user.userId) continue;
+                notificationDocs.push({
+                    userId: reg.userId,
+                    eventId: request.params.eventId,
+                    message: `New message from organizer in "${eventName}": ${request.body.message.substring(0, 100)}`,
+                });
+            }
+
+            if (notificationDocs.length > 0) {
+                await Notification.insertMany(notificationDocs);
+            }
+        }
+
         response.status(201).json(populated);
     } catch (error) {
         response.status(500).json({ message: "Server error" });
